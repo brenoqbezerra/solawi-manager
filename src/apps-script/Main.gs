@@ -1,4 +1,4 @@
-// Haupteinstiegspunkt für die Web-App
+// Main entry point for the web app
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
@@ -8,12 +8,12 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// HTML-Dateien einbinden
+// Include HTML files
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-// Erstellt ein benutzerdefiniertes Menü in der Tabelle
+// Creates a custom menu in the table
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('🌱 Solawi Manager')
@@ -24,7 +24,7 @@ function onOpen() {
     .addToUi();
 }
 
-// Öffnet die Web-App in einem neuen Tab
+// Opens the web app in a new tab
 function openWebApp() {
   var url = ScriptApp.getService().getUrl();
   var html = '<script>window.open("' + url + '", "_blank");</script>';
@@ -32,12 +32,12 @@ function openWebApp() {
     .showModalDialog(HtmlService.createHtmlOutput(html), 'Öffne Solawi Manager...');
 }
 
-// Öffnet die Einstellungen
+// Opens the settings
 function openSettings() {
   SpreadsheetApp.getUi().alert('Einstellungen in Entwicklung...');
 }
 
-// Öffnet die Info-Seite
+// Opens the info page
 function openAbout() {
   var message = 'Solawi Manager v1.0\n' +
                 'Entwickelt für WirGarten\n\n' +
