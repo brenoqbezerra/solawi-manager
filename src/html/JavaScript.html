@@ -1,1 +1,406 @@
+<!-- JavaScript for Solawi Manager -->
+<script>
+// On page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Load basic functions
+    loadDashboardData();
+    loadCalendarData();
+    createNewCropModal();
+    updateCurrentWeek();
+    
+    // Event listener for buttons
+    document.getElementById('newCropButton').addEventListener('click', function() {
+        console.log('Öffne Modal...');
+        const modal = document.getElementById('newCropModal');
+        if (!modal) {
+            console.error('Modal nicht gefunden!');
+            return;
+        }
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    });
+});
 
+// Load dashboard data
+function loadDashboardData() {
+    google.script.run
+        .withSuccessHandler(updateDashboardStats)
+        .withFailureHandler(handleError)
+        .getDashboardStats();
+}
+
+// Update dashboard statistics
+function updateDashboardStats(stats) {
+    document.getElementById('activeCropsCount').textContent = stats.aktivePflanzen || '0';
+    document.getElementById('plannedHarvestsCount').textContent = stats.geplantErnten || '0';
+    document.getElementById('inProgressCount').textContent = stats.inBearbeitung || '0';
+}
+
+// Load calendar data
+function loadCalendarData() {
+    google.script.run
+        .withSuccessHandler(updateCalendarTable)
+        .withFailureHandler(handleError)
+        .getCalendarData();
+}
+
+// Display current calendar week
+function updateCurrentWeek() {
+    google.script.run
+        .withSuccessHandler(function(week) {
+            document.getElementById('currentWeek').textContent = `KW ${week}`;
+        })
+        .getCurrentWeek();
+}
+
+// Update calendar table
+function updateCalendarTable(data) {
+    console.log('Empfangene Daten:', data);
+    const tbody = document.querySelector('#cropsTable tbody');
+    tbody.innerHTML = '';
+
+    if (!data || data.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="8" class="text-center">Keine Daten verfügbar</td>';
+        tbody.appendChild(tr);
+        return;
+    }
+
+    google.script.run.withSuccessHandler(function(currentWeek) {
+        // Sort by ID descending (latest first)
+        data.sort((a, b) => b.id - a.id);
+
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            const statusClass = {
+                'Aktiv': 'bg-success',
+                'In Bearbeitung': 'bg-warning',
+                'Abgeschlossen': 'bg-secondary'
+            }[row.status] || 'bg-primary';
+
+            // Check the harvest status
+            const isHarvestDue = row.ernteWoche == currentWeek;
+            const isHarvestOverdue = row.ernteWoche < currentWeek && row.status !== 'Abgeschlossen';
+            
+            if ((isHarvestDue || isHarvestOverdue) && row.status !== 'Abgeschlossen') {
+                tr.classList.add('table-warning');
+            }
+
+            tr.innerHTML = `
+                <td>${row.name || ''}</td>
+                <td>${row.sorte || ''}</td>
+                <td>KW ${row.pflanzWoche || ''}</td>
+                <td class="position-relative">
+                    KW ${row.ernteWoche || ''}
+                    ${(isHarvestDue || isHarvestOverdue) && row.status !== 'Abgeschlossen' ? 
+                        '<span class="position-absolute top-50 end-0 translate-middle-y me-2">' +
+                        `<i class="material-icons ${isHarvestOverdue ? 'text-danger' : 'text-warning'}" 
+                            title="${isHarvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
+                            ${isHarvestOverdue ? 'error' : 'notifications_active'}
+                        </i>` +
+                        '</span>' : ''}
+                </td>
+                <td>${row.standort || ''}</td>
+                <td>${row.status === 'In Bearbeitung' ? 
+                    `${row.geernteteErnte || '0'}/${row.erwarteteErnte || '0'} ${row.einheit || ''}` : 
+                    `${row.erwarteteErnte || '0'} ${row.einheit || ''}`}</td>
+                <td>
+                    <span class="badge ${statusClass}">
+                        ${row.status || 'Aktiv'}
+                    </span>
+                </td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCrop(${row.id})" title="Kultur löschen">
+                        <i class="material-icons" style="font-size: 18px;">delete</i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }).getCurrentWeek();
+}
+
+// Delete culture/plant
+function deleteCrop(id) {
+    if (confirm('Möchten Sie diese Kultur wirklich löschen?')) {
+        google.script.run
+            .withSuccessHandler(function() {
+                loadDashboardData();
+                loadCalendarData();
+            })
+            .withFailureHandler(function(error) {
+                alert('Fehler beim Löschen: ' + error);
+            })
+            .deleteCrop(id);
+    }
+}
+
+// Determine status badge class
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'Aktiv':
+            return 'bg-success';
+        case 'In Bearbeitung':
+            return 'bg-warning';
+        case 'Abgeschlossen':
+            return 'bg-secondary';
+        default:
+            return 'bg-primary';
+    }
+}
+
+// Create modal for new culture/plant
+function createNewCropModal() {
+    const modalHtml = `
+        <div class="modal fade" id="newCropModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Neue Kultur anlegen</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="newCropForm">
+                            <!-- Pflichtfelder -->
+                            <div class="mb-3">
+                                <label class="form-label">Kultur*</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Sorte*</label>
+                                <input type="text" class="form-control" name="sorte" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Pflanzwoche*</label>
+                                    <input type="number" class="form-control" name="pflanzWoche" min="1" max="53" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Erntewoche*</label>
+                                    <input type="number" class="form-control" name="ernteWoche" min="1" max="53" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Standort*</label>
+                                <input type="text" class="form-control" name="standort" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Erwartete Erntemenge*</label>
+                                    <input type="number" class="form-control" name="erwarteteErnte" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Einheit*</label>
+                                    <select class="form-select" name="einheit" required>
+                                        <option value="kg">kg</option>
+                                        <option value="Stück">Stück</option>
+                                        <option value="Bund">Bund</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Optionale Felder -->
+                            <div class="mb-3">
+                                <label class="form-label">Anbautyp</label>
+                                <select class="form-select" name="anbauTyp">
+                                    <option value="Freiland">Freiland</option>
+                                    <option value="Gewächshaus">Gewächshaus</option>
+                                    <option value="Tunnel">Tunnel</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="button" class="btn btn-success" onclick="saveCrop()">Speichern</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// Open new culture/plant modal
+function openNewCropModal() {
+    const modal = new bootstrap.Modal(document.getElementById('newCropModal'));
+    modal.show();
+}
+
+// Save new culture/plant
+function saveCrop() {
+    const form = document.getElementById('newCropForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = {
+        name: form.elements.name.value,
+        sorte: form.elements.sorte.value,
+        pflanzWoche: parseInt(form.elements.pflanzWoche.value),
+        ernteWoche: parseInt(form.elements.ernteWoche.value),
+        standort: form.elements.standort.value,
+        erwarteteErnte: parseFloat(form.elements.erwarteteErnte.value),
+        einheit: form.elements.einheit.value,
+        anbauTyp: form.elements.anbauTyp.value,
+        status: 'Aktiv'
+    };
+
+    google.script.run
+        .withSuccessHandler(onCropSaved)
+        .withFailureHandler(handleError)
+        .saveCrop(formData);
+}
+
+// After saving
+function onCropSaved() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
+    modal.hide();
+    document.getElementById('newCropForm').reset();
+    loadDashboardData();
+    loadCalendarData();
+}
+
+// Open harvest modal
+function openHarvestModal() {
+    // Implementierung folgt
+    alert('Ernte Formular in Entwicklung...');
+}
+
+// Error handling
+function handleError(error) {
+    console.error('Fehler:', error);
+    alert('Ein Fehler ist aufgetreten. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.');
+}
+
+// Create and open harvest modal
+function createHarvestModal() {
+    const modalHtml = `
+        <div class="modal fade" id="harvestModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Ernte erfassen</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="harvestForm">
+                            <div class="mb-3">
+                                <label class="form-label">Kultur auswählen*</label>
+                                <select class="form-select" name="cropSelect" id="cropSelect" required>
+                                    <option value="">Bitte wählen...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Erntedatum*</label>
+                                <input type="date" class="form-control" name="harvestDate" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Geerntete Menge*</label>
+                                    <input type="number" class="form-control" name="harvestedAmount" step="0.01" min="0" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Einheit</label>
+                                    <input type="text" class="form-control" name="unit" id="unitDisplay" readonly>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Bemerkungen</label>
+                                <textarea class="form-control" name="notes" rows="3"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="button" class="btn btn-success" onclick="saveHarvest()">Speichern</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// Open harvest modal
+function openHarvestModal() {
+    // Create modal if not already present
+    if (!document.getElementById('harvestModal')) {
+        createHarvestModal();
+    }
+    
+    // Load active cultures
+    google.script.run
+        .withSuccessHandler(populateCropSelect)
+        .withFailureHandler(handleError)
+        .getActiveCrops();
+        
+    const modal = new bootstrap.Modal(document.getElementById('harvestModal'));
+    modal.show();
+}
+
+// Fill dropdown with active cultures
+function populateCropSelect(crops) {
+    const select = document.getElementById('cropSelect');
+    select.innerHTML = '<option value="">Bitte wählen...</option>';
+    
+    crops.forEach(crop => {
+        const option = document.createElement('option');
+        option.value = crop.id;
+        option.textContent = `${crop.name} - ${crop.sorte} (${crop.standort})`;
+        option.dataset.unit = crop.einheit;
+        select.appendChild(option);
+    });
+    
+    // Event listener for unit update
+    select.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        document.getElementById('unitDisplay').value = selectedOption.dataset.unit || '';
+    });
+}
+
+// Save harvest
+function saveHarvest() {
+    const form = document.getElementById('harvestForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = {
+        cropId: form.elements.cropSelect.value,
+        harvestDate: form.elements.harvestDate.value,
+        amount: parseFloat(form.elements.harvestedAmount.value),
+        unit: form.elements.unit.value,
+        notes: form.elements.notes.value
+    };
+
+    console.log('Saving harvest data:', formData); // Debug
+
+    google.script.run
+        .withSuccessHandler(function() {
+            console.log('Harvest saved successfully');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('harvestModal'));
+            modal.hide();
+            document.getElementById('harvestForm').reset();
+            loadDashboardData();
+            loadCalendarData();
+        })
+        .withFailureHandler(function(error) {
+            console.error('Error saving harvest:', error);
+            alert('Fehler beim Speichern der Ernte: ' + error);
+        })
+        .saveHarvest(formData);
+}
+
+// After saving the harvest
+function onHarvestSaved() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('harvestModal'));
+    modal.hide();
+    document.getElementById('harvestForm').reset();
+    loadDashboardData();
+    loadCalendarData();
+}
+</script>
