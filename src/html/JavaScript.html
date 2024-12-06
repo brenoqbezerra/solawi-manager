@@ -1,8 +1,22 @@
 <!-- JavaScript for Solawi Manager -->
 <script>
-// On page load
+// App state management
+const AppState = {
+    currentData: null,
+    currentWeek: null,
+    updateTimeout: null
+};
+
+// Constants
+const THROTTLE_DELAY = 1000;
+const STATUS_CLASSES = {
+    'Aktiv': 'bg-success',
+    'In Bearbeitung': 'bg-warning',
+    'Abgeschlossen': 'bg-secondary'
+};
+
+// Initialize app on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Load basic functions
     loadDashboardData();
     loadCalendarData();
     createNewCropModal();
@@ -10,10 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Event listener for buttons
     document.getElementById('newCropButton').addEventListener('click', function() {
-        console.log('Öffne Modal...');
         const modal = document.getElementById('newCropModal');
         if (!modal) {
-            console.error('Modal nicht gefunden!');
+            console.error('Modal not found!');
             return;
         }
         const bsModal = new bootstrap.Modal(modal);
@@ -44,18 +57,19 @@ function loadCalendarData() {
         .getCalendarData();
 }
 
-// Display current calendar week
+// Update current calendar week
 function updateCurrentWeek() {
     google.script.run
         .withSuccessHandler(function(week) {
             document.getElementById('currentWeek').textContent = `KW ${week}`;
+            AppState.currentWeek = week;
         })
         .getCurrentWeek();
 }
 
-// Update calendar table
+// Update calendar table with row IDs
 function updateCalendarTable(data) {
-    console.log('Empfangene Daten:', data);
+    console.log('Received data:', data);
     const tbody = document.querySelector('#cropsTable tbody');
     tbody.innerHTML = '';
 
@@ -67,18 +81,19 @@ function updateCalendarTable(data) {
     }
 
     google.script.run.withSuccessHandler(function(currentWeek) {
-        // Sort by ID descending (latest first)
         data.sort((a, b) => b.id - a.id);
 
         data.forEach(row => {
             const tr = document.createElement('tr');
+            // Add data-id attribute to the row
+            tr.setAttribute('data-id', row.id);
+            
             const statusClass = {
                 'Aktiv': 'bg-success',
                 'In Bearbeitung': 'bg-warning',
                 'Abgeschlossen': 'bg-secondary'
             }[row.status] || 'bg-primary';
 
-            // Check the harvest status
             const isHarvestDue = row.ernteWoche == currentWeek;
             const isHarvestOverdue = row.ernteWoche < currentWeek && row.status !== 'Abgeschlossen';
             
@@ -120,36 +135,67 @@ function updateCalendarTable(data) {
     }).getCurrentWeek();
 }
 
-// Delete culture/plant
+// Add notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+}
+
+// Delete crop with confirmation
 function deleteCrop(id) {
     if (confirm('Möchten Sie diese Kultur wirklich löschen?')) {
+        // Show immediate visual feedback
+        const row = document.querySelector(`#cropsTable tr[data-id="${id}"]`);
+        if (row) row.style.opacity = '0.5';
+
         google.script.run
-            .withSuccessHandler(function() {
-                loadDashboardData();
-                loadCalendarData();
+            .withSuccessHandler(function(result) {
+                if (result.success) {
+                    // Remove row from UI
+                    const rowToDelete = document.querySelector(`#cropsTable tr[data-id="${result.deletedId}"]`);
+                    if (rowToDelete) {
+                        rowToDelete.remove();
+                    }
+                    
+                    // Update counters
+                    loadDashboardData();
+
+                    // Show success message
+                    showNotification('Kultur erfolgreich gelöscht', 'success');
+                }
             })
             .withFailureHandler(function(error) {
-                alert('Fehler beim Löschen: ' + error);
+                // Restore visual in case of error
+                if (row) row.style.opacity = '1';
+                handleError('Delete error: ' + error);
             })
             .deleteCrop(id);
     }
 }
 
-// Determine status badge class
-function getStatusBadgeClass(status) {
-    switch(status) {
-        case 'Aktiv':
-            return 'bg-success';
-        case 'In Bearbeitung':
-            return 'bg-warning';
-        case 'Abgeschlossen':
-            return 'bg-secondary';
-        default:
-            return 'bg-primary';
-    }
+// Function to update only the counters
+function updateCounters() {
+    google.script.run
+        .withSuccessHandler(updateDashboardStats)
+        .withFailureHandler(handleError)
+        .getDashboardStats();
 }
 
-// Create modal for new culture/plant
+// Throttle updates to prevent excessive server calls
+function throttledUpdate(callback) {
+    if (AppState.updateTimeout) {
+        clearTimeout(AppState.updateTimeout);
+    }
+    AppState.updateTimeout = setTimeout(callback, THROTTLE_DELAY);
+}
+
+// Create new crop modal
 function createNewCropModal() {
     const modalHtml = `
         <div class="modal fade" id="newCropModal" tabindex="-1">
@@ -161,7 +207,7 @@ function createNewCropModal() {
                     </div>
                     <div class="modal-body">
                         <form id="newCropForm">
-                            <!-- Pflichtfelder -->
+                            <!-- Required fields -->
                             <div class="mb-3">
                                 <label class="form-label">Kultur*</label>
                                 <input type="text" class="form-control" name="name" required>
@@ -198,7 +244,7 @@ function createNewCropModal() {
                                     </select>
                                 </div>
                             </div>
-                            <!-- Optionale Felder -->
+                            <!-- Optional fields -->
                             <div class="mb-3">
                                 <label class="form-label">Anbautyp</label>
                                 <select class="form-select" name="anbauTyp">
@@ -221,13 +267,8 @@ function createNewCropModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// Open new culture/plant modal
-function openNewCropModal() {
-    const modal = new bootstrap.Modal(document.getElementById('newCropModal'));
-    modal.show();
-}
-
-// Save new culture/plant
+// Save crop data
+// Save crop data
 function saveCrop() {
     const form = document.getElementById('newCropForm');
     if (!form.checkValidity()) {
@@ -248,33 +289,115 @@ function saveCrop() {
     };
 
     google.script.run
-        .withSuccessHandler(onCropSaved)
-        .withFailureHandler(handleError)
+        .withSuccessHandler(function(result) {
+            // Close modal and reset form
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
+            if (modal) {
+                modal.hide();
+            }
+            form.reset();
+
+            // Force data reload
+            Promise.all([
+                new Promise(resolve => {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(resolve)
+                        .getDashboardStats();
+                }),
+                new Promise(resolve => {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(resolve)
+                        .getCalendarData();
+                })
+            ]).then(() => {
+                // Reload both data sources
+                loadDashboardData();
+                loadCalendarData();
+                
+                // Show success message
+                showNotification('Neue Kultur erfolgreich angelegt', 'success');
+            });
+        })
+        .withFailureHandler(function(error) {
+            handleError(error);
+            showNotification('Fehler beim Speichern der Kultur', 'error');
+        })
         .saveCrop(formData);
 }
 
-// After saving
+// Helper function to add new row directly to table
+function addNewRowToTable(crop) {
+   const tbody = document.querySelector('#cropsTable tbody');
+   const tr = document.createElement('tr');
+   tr.setAttribute('data-id', crop.id);
+   
+   // Get current week for harvest status check
+   const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+   
+   // Check harvest status
+   const isHarvestDue = crop.ernteWoche == currentWeek;
+   const isHarvestOverdue = crop.ernteWoche < currentWeek && crop.status !== 'Abgeschlossen';
+   
+   if ((isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen') {
+       tr.classList.add('table-warning');
+   }
+
+   // Get status class
+   const statusClass = {
+       'Aktiv': 'bg-success',
+       'In Bearbeitung': 'bg-warning',
+       'Abgeschlossen': 'bg-secondary'
+   }[crop.status] || 'bg-primary';
+
+   // Create row HTML
+   tr.innerHTML = `
+       <td>${crop.name || ''}</td>
+       <td>${crop.sorte || ''}</td>
+       <td>KW ${crop.pflanzWoche || ''}</td>
+       <td class="position-relative">
+           KW ${crop.ernteWoche || ''}
+           ${(isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen' ? 
+               '<span class="position-absolute top-50 end-0 translate-middle-y me-2">' +
+               `<i class="material-icons ${isHarvestOverdue ? 'text-danger' : 'text-warning'}" 
+                   title="${isHarvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
+                   ${isHarvestOverdue ? 'error' : 'notifications_active'}
+               </i>` +
+               '</span>' : ''}
+       </td>
+       <td>${crop.standort || ''}</td>
+       <td>${crop.status === 'In Bearbeitung' ? 
+           `${crop.geernteteErnte || '0'}/${crop.erwarteteErnte || '0'} ${crop.einheit || ''}` : 
+           `${crop.erwarteteErnte || '0'} ${crop.einheit || ''}`}</td>
+       <td>
+           <span class="badge ${statusClass}">
+               ${crop.status || 'Aktiv'}
+           </span>
+       </td>
+       <td class="text-end">
+           <button class="btn btn-sm btn-outline-danger" onclick="deleteCrop(${crop.id})" title="Kultur löschen">
+               <i class="material-icons" style="font-size: 18px;">delete</i>
+           </button>
+       </td>
+   `;
+   
+   // Add to top of table
+   tbody.insertBefore(tr, tbody.firstChild);
+}
+
+// Handle successful crop save
 function onCropSaved() {
     const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
     modal.hide();
     document.getElementById('newCropForm').reset();
-    loadDashboardData();
-    loadCalendarData();
+    throttledUpdate(() => {
+        loadDashboardData();
+        loadCalendarData();
+    });
 }
 
-// Open harvest modal
-function openHarvestModal() {
-    // Implementierung folgt
-    alert('Ernte Formular in Entwicklung...');
-}
-
-// Error handling
-function handleError(error) {
-    console.error('Fehler:', error);
-    alert('Ein Fehler ist aufgetreten. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.');
-}
-
-// Create and open harvest modal
+// Create and configure harvest modal
 function createHarvestModal() {
     const modalHtml = `
         <div class="modal fade" id="harvestModal" tabindex="-1">
@@ -324,14 +447,12 @@ function createHarvestModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// Open harvest modal
+// Open harvest modal and load data
 function openHarvestModal() {
-    // Create modal if not already present
     if (!document.getElementById('harvestModal')) {
         createHarvestModal();
     }
     
-    // Load active cultures
     google.script.run
         .withSuccessHandler(populateCropSelect)
         .withFailureHandler(handleError)
@@ -341,7 +462,7 @@ function openHarvestModal() {
     modal.show();
 }
 
-// Fill dropdown with active cultures
+// Populate crop select dropdown
 function populateCropSelect(crops) {
     const select = document.getElementById('cropSelect');
     select.innerHTML = '<option value="">Bitte wählen...</option>';
@@ -354,14 +475,13 @@ function populateCropSelect(crops) {
         select.appendChild(option);
     });
     
-    // Event listener for unit update
     select.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
         document.getElementById('unitDisplay').value = selectedOption.dataset.unit || '';
     });
 }
 
-// Save harvest
+// Save harvest data
 function saveHarvest() {
     const form = document.getElementById('harvestForm');
     if (!form.checkValidity()) {
@@ -377,22 +497,51 @@ function saveHarvest() {
         notes: form.elements.notes.value
     };
 
-    console.log('Saving harvest data:', formData); // Debug
-
     google.script.run
-        .withSuccessHandler(function() {
-            console.log('Harvest saved successfully');
+        .withSuccessHandler(function(result) {
             const modal = bootstrap.Modal.getInstance(document.getElementById('harvestModal'));
             modal.hide();
-            document.getElementById('harvestForm').reset();
+            form.reset();
             loadDashboardData();
             loadCalendarData();
+            showNotification('Ernte erfolgreich erfasst', 'success');
         })
-        .withFailureHandler(function(error) {
-            console.error('Error saving harvest:', error);
-            alert('Fehler beim Speichern der Ernte: ' + error);
-        })
+        .withFailureHandler(handleError)
         .saveHarvest(formData);
+}
+
+// Helper function to update row status
+function updateRowStatus(cropId, newStatus, harvestedAmount) {
+    const row = document.querySelector(`#cropsTable tr[data-id="${cropId}"]`);
+    if (row) {
+        const statusCell = row.querySelector('td:nth-child(7)');
+        const harvestCell = row.querySelector('td:nth-child(6)');
+        
+        // Update status badge
+        if (statusCell) {
+            const statusClass = {
+                'Aktiv': 'bg-success',
+                'In Bearbeitung': 'bg-warning',
+                'Abgeschlossen': 'bg-secondary'
+            }[newStatus];
+            
+            statusCell.innerHTML = `<span class="badge ${statusClass}">${newStatus}</span>`;
+        }
+        
+        // Update harvest amount if needed
+        if (harvestCell && harvestedAmount) {
+            const [_, total, unit] = harvestCell.textContent.match(/(\d+)\s+(\w+)$/);
+            harvestCell.textContent = `${harvestedAmount}/${total} ${unit}`;
+        }
+    }
+}
+
+// Update only dashboard counters
+function updateDashboardCounters() {
+    google.script.run
+        .withSuccessHandler(updateDashboardStats)
+        .withFailureHandler(handleError)
+        .getDashboardStats();
 }
 
 // After saving the harvest
@@ -402,5 +551,11 @@ function onHarvestSaved() {
     document.getElementById('harvestForm').reset();
     loadDashboardData();
     loadCalendarData();
+}
+
+// Error handling
+function handleError(error) {
+    console.error('Error:', error);
+    alert('Ein Fehler ist aufgetreten. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.');
 }
 </script>
