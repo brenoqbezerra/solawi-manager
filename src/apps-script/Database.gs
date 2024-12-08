@@ -133,15 +133,21 @@ function saveCrop(data) {
         ];
         
         sheet.appendRow(rowData);
-        
-        // Explicitly invalidate cache
         invalidateCache();
         
-        // Return complete data
+        // Return complete data for UI update
         return {
-            success: true,
             id: newId,
-            ...data
+            name: data.name,
+            sorte: data.sorte,
+            pflanzWoche: parseInt(data.pflanzWoche),
+            ernteWoche: parseInt(data.ernteWoche),
+            status: data.status,
+            standort: data.standort,
+            anbauTyp: data.anbauTyp,
+            erwarteteErnte: data.erwarteteErnte,
+            einheit: data.einheit,
+            geernteteErnte: 0
         };
     } catch (error) {
         Logger.log('Error saving crop: ' + error.toString());
@@ -155,100 +161,52 @@ function invalidateCache() {
     cache.removeAll([CACHE_KEYS.CALENDAR, CACHE_KEYS.HARVEST, CACHE_KEYS.DASHBOARD]);
 }
 
-// Save harvest with batch updates
-function saveHarvest(data) {
+// Fetches dashboard statistics
+function getDashboardStats() {
     try {
-        const harvestSheet = getActiveSpreadsheet().getSheetByName(SHEETS.HARVEST);
-        const calendarSheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
-        
-        const harvestDate = new Date(data.harvestDate);
-        const kw = Utilities.formatDate(harvestDate, Session.getScriptTimeZone(), 'w');
-        
-        // Get crop data
-        const cropData = calendarSheet.getDataRange().getValues()
-            .find(row => row[0].toString() === data.cropId.toString());
-        
-        if (!cropData) {
-            throw new Error('Kultur nicht gefunden');
+        const sheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
+        if (!sheet) {
+            Logger.log('Sheet not found');
+            return { aktivePflanzen: 0, geplantErnten: 0, inBearbeitung: 0 };
         }
+
+        const lastRow = sheet.getLastRow();
+        if (lastRow <= 1) {
+            Logger.log('No data in sheet');
+            return { aktivePflanzen: 0, geplantErnten: 0, inBearbeitung: 0 };
+        }
+
+        // Get raw data
+        const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+        const aktuelleWoche = getCurrentWeek();
         
-        // Calculate harvested amount
-        const previousHarvests = harvestSheet.getDataRange().getValues()
-            .filter(row => row[0] === cropData[1] && row[1] === cropData[2])
-            .reduce((sum, row) => sum + (row[8] || 0), 0);
+        // Filter out empty rows
+        const validRows = data.filter(row => row[0]);
         
-        const totalHarvested = previousHarvests + parseFloat(data.amount);
-        
-        // Add new harvest row
-        const rowData = [
-            cropData[1],   // Bezeichnung
-            cropData[2],   // Sorte
-            kw,           // KW
-            '',           // abw. Lieferwochen
-            data.unit,    // Einheit
-            '',           // Anzahl Anteile
-            '',           // benötigte Erntemenge je Anteil
-            '',           // benötigte Erntemenge gesamt
-            data.amount,  // Erwartete Erntemenge
-            cropData[6],  // Schlag (Standort)
-            'Ja',        // geerntet
-            data.unit    // Einheit
-        ];
-        
-        harvestSheet.appendRow(rowData);
-        
-        // Update status
-        const row = calendarSheet.getDataRange().getValues()
-            .findIndex(row => row[0].toString() === data.cropId.toString()) + 1;
+        Logger.log('Processing ' + validRows.length + ' rows');
+
+        const stats = {
+            // Count ALL non-completed cultures (both Aktiv and In Bearbeitung)
+            aktivePflanzen: validRows.filter(row => row[5] !== 'Abgeschlossen').length,
             
-        const newStatus = totalHarvested >= cropData[8] ? 'Abgeschlossen' :
-                         totalHarvested > 0 ? 'In Bearbeitung' : 'Aktiv';
-        
-        calendarSheet.getRange(row, 6).setValue(newStatus);
-        
-        return {
-            cropId: data.cropId,
-            newStatus: newStatus,
-            harvestedAmount: totalHarvested
+            // Count cultures for current week that are not completed
+            geplantErnten: validRows.filter(row => 
+                row[4] === aktuelleWoche && 
+                row[5] !== 'Abgeschlossen'
+            ).length,
+            
+            // Count only In Bearbeitung cultures
+            inBearbeitung: validRows.filter(row => row[5] === 'In Bearbeitung').length
         };
+
+        Logger.log('Calculated stats: ' + JSON.stringify(stats));
+        return stats;
+
     } catch (error) {
-        Logger.log('Error saving harvest: ' + error.toString());
-        throw error;
+        Logger.log('Error in getDashboardStats: ' + error.toString());
+        return { aktivePflanzen: 0, geplantErnten: 0, inBearbeitung: 0 };
     }
 }
-
-// Fetches dashboard statistics with caching
-function getDashboardStats() {
-  try {
-    const cachedStats = getCacheData(CACHE_KEYS.DASHBOARD);
-    if (cachedStats) return cachedStats;
-
-    const data = getCalendarData();
-    const aktuelleWoche = getCurrentWeek();
-    
-    const stats = {
-      aktivePflanzen: data.filter(row => row.status === 'Aktiv').length,
-      geplantErnten: data.filter(row => row.ernteWoche === aktuelleWoche).length,
-      inBearbeitung: data.filter(row => row.status === 'In Bearbeitung').length
-    };
-    
-    setCacheData(CACHE_KEYS.DASHBOARD, stats);
-    return stats;
-    
-  } catch (error) {
-    Logger.log('Fehler bei Stats: ' + error.toString());
-    return { aktivePflanzen: 0, geplantErnten: 0, inBearbeitung: 0 };
-  }
-}
-
-// Helper function for calendar week
-Date.prototype.getWeek = function() {
-  var d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
-  var dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-};
 
 // Fetch active cultures for harvest dropdown with caching
 function getActiveCrops() {
@@ -266,47 +224,62 @@ function getActiveCrops() {
 
 // Save harvest with batch updates
 function saveHarvest(data) {
-  try {
-    const harvestSheet = getActiveSpreadsheet().getSheetByName(SHEETS.HARVEST);
-    const calendarSheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
-    
-    const harvestDate = new Date(data.harvestDate);
-    const kw = Utilities.formatDate(harvestDate, Session.getScriptTimeZone(), 'w');
-    
-    // Get all calendar data at once
-    const calendarData = calendarSheet.getDataRange().getValues();
-    const cropData = calendarData.find(row => row[0].toString() === data.cropId.toString());
-    
-    if (!cropData) {
-      throw new Error('Kultur nicht gefunden');
+    try {
+        const harvestSheet = getActiveSpreadsheet().getSheetByName(SHEETS.HARVEST);
+        const calendarSheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
+        
+        const harvestDate = new Date(data.harvestDate);
+        const kw = Utilities.formatDate(harvestDate, Session.getScriptTimeZone(), 'w');
+        
+        const calendarData = calendarSheet.getDataRange().getValues();
+        const cropData = calendarData.find(row => row[0].toString() === data.cropId.toString());
+        
+        if (!cropData) {
+            throw new Error('Kultur nicht gefunden');
+        }
+        
+        const harvestMap = getHarvestDataMap();
+        const previousHarvests = harvestMap[`${cropData[1]}_${cropData[2]}`] || 0;
+        const totalHarvested = previousHarvests + parseFloat(data.amount);
+        
+        const rowData = [
+            cropData[1],
+            cropData[2],
+            kw,
+            '',
+            data.unit,
+            '',
+            '',
+            '',
+            data.amount,
+            cropData[6],
+            'Ja',
+            data.unit
+        ];
+        
+        harvestSheet.appendRow(rowData);
+        
+        const rowIndex = calendarData.findIndex(row => row[0].toString() === data.cropId.toString()) + 1;
+        const newStatus = totalHarvested >= cropData[8] ? 'Abgeschlossen' : 
+                         totalHarvested > 0 ? 'In Bearbeitung' : 'Aktiv';
+        
+        calendarSheet.getRange(rowIndex, 6).setValue(newStatus);
+        
+        // Clear cache to ensure fresh data
+        invalidateCache();
+        
+        // Return all necessary information
+        return {
+            cropId: data.cropId,
+            newStatus: newStatus,
+            harvestedAmount: totalHarvested,
+            totalAmount: cropData[8],
+            unit: data.unit
+        };
+    } catch (error) {
+        Logger.log('Error saving harvest: ' + error.toString());
+        throw error;
     }
-    
-    // Get harvest data efficiently
-    const harvestMap = getHarvestDataMap();
-    const previousHarvests = harvestMap[`${cropData[1]}_${cropData[2]}`] || 0;
-    const totalHarvested = previousHarvests + parseFloat(data.amount);
-    
-    // Prepare new harvest row
-    const rowData = [
-      cropData[1], cropData[2], kw, '', data.unit, '',
-      '', '', data.amount, cropData[6], 'Ja', data.unit
-    ];
-    
-    // Batch update: Add new harvest row and update status
-    harvestSheet.appendRow(rowData);
-    
-    const rowIndex = calendarData.findIndex(row => row[0].toString() === data.cropId.toString()) + 1;
-    const newStatus = totalHarvested >= cropData[8] ? 'Abgeschlossen' : 
-                     totalHarvested > 0 ? 'In Bearbeitung' : 'Aktiv';
-    
-    calendarSheet.getRange(rowIndex, 6).setValue(newStatus);
-    
-    invalidateCache();
-    return true;
-  } catch (error) {
-    Logger.log('Fehler beim Speichern der Ernte: ' + error.toString());
-    throw error;
-  }
 }
 
 // Get current calendar week
