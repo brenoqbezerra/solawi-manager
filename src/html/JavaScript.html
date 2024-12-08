@@ -16,38 +16,97 @@ const STATUS_CLASSES = {
 };
 
 // Initialize app on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadDashboardData();
-    loadCalendarData();
-    createNewCropModal();
-    updateCurrentWeek();
-    
-    // Event listener for buttons
-    document.getElementById('newCropButton').addEventListener('click', function() {
-        const modal = document.getElementById('newCropModal');
-        if (!modal) {
-            console.error('Modal not found!');
-            return;
-        }
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
-    });
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('Starting app initialization');
+    try {
+        // First load calendar data
+        await google.script.run
+            .withSuccessHandler(function(calendarData) {
+                console.log('Calendar data loaded, updating table');
+                updateCalendarTable(calendarData);
+            })
+            .withFailureHandler(handleError)
+            .getCalendarData();
+
+        // Then explicitly load dashboard data
+        await google.script.run
+            .withSuccessHandler(function(stats) {
+                console.log('Dashboard stats loaded:', stats);
+                updateDashboardStats(stats);
+            })
+            .withFailureHandler(handleError)
+            .getDashboardStats();
+
+        createNewCropModal();
+        updateCurrentWeek();
+        
+        // Keep the original button event listener
+        document.getElementById('newCropButton').addEventListener('click', function() {
+            const modal = document.getElementById('newCropModal');
+            if (!modal) {
+                console.error('Modal not found!');
+                return;
+            }
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        });
+        
+        console.log('App initialization complete');
+    } catch (error) {
+        console.error('Error during initialization:', error);
+    }
 });
 
 // Load dashboard data
 function loadDashboardData() {
-    google.script.run
-        .withSuccessHandler(updateDashboardStats)
-        .withFailureHandler(handleError)
-        .getDashboardStats();
+    const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+    let aktivePflanzen = 0;
+    let geplantErnten = 0;
+    let inBearbeitung = 0;
+
+    const rows = document.querySelectorAll('#cropsTable tbody tr');
+    
+    rows.forEach(row => {
+        const status = row.querySelector('.badge').textContent;
+        const harvestWeek = parseInt(row.querySelector('td:nth-child(4)').textContent.replace('KW ', ''));
+        
+        if (status !== 'Abgeschlossen') {
+            aktivePflanzen++;
+        }
+        
+        if (status === 'In Bearbeitung') {
+            inBearbeitung++;
+        }
+        
+        if (harvestWeek === currentWeek && status !== 'Abgeschlossen') {
+            geplantErnten++;
+        }
+    });
+
+    document.getElementById('activeCropsCount').textContent = aktivePflanzen;
+    document.getElementById('plannedHarvestsCount').textContent = geplantErnten;
+    document.getElementById('inProgressCount').textContent = inBearbeitung;
 }
 
 // Update dashboard statistics
 function updateDashboardStats(stats) {
-    document.getElementById('activeCropsCount').textContent = stats.aktivePflanzen || '0';
-    document.getElementById('plannedHarvestsCount').textContent = stats.geplantErnten || '0';
-    document.getElementById('inProgressCount').textContent = stats.inBearbeitung || '0';
+    console.log('Updating dashboard with stats:', stats);
+    if (!stats) {
+        console.warn('No stats received');
+        return;
+    }
+
+    const activeCropsElement = document.getElementById('activeCropsCount');
+    const plannedHarvestsElement = document.getElementById('plannedHarvestsCount');
+    const inProgressElement = document.getElementById('inProgressCount');
+
+    if (activeCropsElement) activeCropsElement.textContent = stats.aktivePflanzen || '0';
+    if (plannedHarvestsElement) plannedHarvestsElement.textContent = stats.geplantErnten || '0';
+    if (inProgressElement) inProgressElement.textContent = stats.inBearbeitung || '0';
+
+    console.log('Dashboard updated successfully');
 }
+
 
 // Load calendar data
 function loadCalendarData() {
@@ -149,31 +208,39 @@ function showNotification(message, type = 'info') {
 
 // Delete crop with confirmation
 function deleteCrop(id) {
-    if (confirm('Möchten Sie diese Kultur wirklich löschen?')) {
-        // Show immediate visual feedback
-        const row = document.querySelector(`#cropsTable tr[data-id="${id}"]`);
-        if (row) row.style.opacity = '0.5';
+    if (!confirm('Möchten Sie diese Kultur wirklich löschen?')) return;
 
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) {
+        const status = row.querySelector('.badge').textContent;
+        row.style.opacity = '0.5';
+        
         google.script.run
             .withSuccessHandler(function(result) {
                 if (result.success) {
-                    // Remove row from UI
-                    const rowToDelete = document.querySelector(`#cropsTable tr[data-id="${result.deletedId}"]`);
-                    if (rowToDelete) {
-                        rowToDelete.remove();
+                    row.style.transition = 'opacity 0.3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                    
+                    // Update correct counter based on status
+                    if (status === 'Aktiv') {
+                        decrementCounter(document.getElementById('activeCropsCount'));
+                        // Check if it was planned for current week
+                        const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+                        const harvestWeek = parseInt(row.querySelector('td:nth-child(4)').textContent.replace('KW ', ''));
+                        if (currentWeek === harvestWeek) {
+                            decrementCounter(document.getElementById('plannedHarvestsCount'));
+                        }
+                    } else if (status === 'In Bearbeitung') {
+                        decrementCounter(document.getElementById('inProgressCount'));
                     }
                     
-                    // Update counters
-                    loadDashboardData();
-
-                    // Show success message
                     showNotification('Kultur erfolgreich gelöscht', 'success');
                 }
             })
             .withFailureHandler(function(error) {
-                // Restore visual in case of error
-                if (row) row.style.opacity = '1';
-                handleError('Delete error: ' + error);
+                row.style.opacity = '1';
+                handleError(error);
             })
             .deleteCrop(id);
     }
@@ -268,7 +335,6 @@ function createNewCropModal() {
 }
 
 // Save crop data
-// Save crop data
 function saveCrop() {
     const form = document.getElementById('newCropForm');
     if (!form.checkValidity()) {
@@ -289,102 +355,75 @@ function saveCrop() {
     };
 
     google.script.run
-        .withSuccessHandler(function(result) {
-            // Close modal and reset form
-            const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
-            if (modal) {
-                modal.hide();
+        .withSuccessHandler(function(newCrop) {
+            addNewRowToTable(newCrop);
+            incrementDashboardCounter('activeCropsCount');
+            
+            const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+            if (newCrop.ernteWoche === currentWeek) {
+                incrementDashboardCounter('plannedHarvestsCount');
             }
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
+            modal.hide();
             form.reset();
-
-            // Force data reload
-            Promise.all([
-                new Promise(resolve => {
-                    google.script.run
-                        .withSuccessHandler(resolve)
-                        .withFailureHandler(resolve)
-                        .getDashboardStats();
-                }),
-                new Promise(resolve => {
-                    google.script.run
-                        .withSuccessHandler(resolve)
-                        .withFailureHandler(resolve)
-                        .getCalendarData();
-                })
-            ]).then(() => {
-                // Reload both data sources
-                loadDashboardData();
-                loadCalendarData();
-                
-                // Show success message
-                showNotification('Neue Kultur erfolgreich angelegt', 'success');
-            });
+            showNotification('Neue Kultur erfolgreich angelegt', 'success');
         })
-        .withFailureHandler(function(error) {
-            handleError(error);
-            showNotification('Fehler beim Speichern der Kultur', 'error');
-        })
+        .withFailureHandler(handleError)
         .saveCrop(formData);
 }
 
-// Helper function to add new row directly to table
+// Add helper function for direct row insertion
 function addNewRowToTable(crop) {
-   const tbody = document.querySelector('#cropsTable tbody');
-   const tr = document.createElement('tr');
-   tr.setAttribute('data-id', crop.id);
-   
-   // Get current week for harvest status check
-   const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
-   
-   // Check harvest status
-   const isHarvestDue = crop.ernteWoche == currentWeek;
-   const isHarvestOverdue = crop.ernteWoche < currentWeek && crop.status !== 'Abgeschlossen';
-   
-   if ((isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen') {
-       tr.classList.add('table-warning');
-   }
+    const tbody = document.querySelector('#cropsTable tbody');
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-id', crop.id);
+    
+    const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+    const isHarvestDue = crop.ernteWoche == currentWeek;
+    const isHarvestOverdue = crop.ernteWoche < currentWeek && crop.status !== 'Abgeschlossen';
+    
+    if ((isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen') {
+        tr.classList.add('table-warning');
+    }
 
-   // Get status class
-   const statusClass = {
-       'Aktiv': 'bg-success',
-       'In Bearbeitung': 'bg-warning',
-       'Abgeschlossen': 'bg-secondary'
-   }[crop.status] || 'bg-primary';
+    const statusClass = {
+        'Aktiv': 'bg-success',
+        'In Bearbeitung': 'bg-warning',
+        'Abgeschlossen': 'bg-secondary'
+    }[crop.status] || 'bg-primary';
 
-   // Create row HTML
-   tr.innerHTML = `
-       <td>${crop.name || ''}</td>
-       <td>${crop.sorte || ''}</td>
-       <td>KW ${crop.pflanzWoche || ''}</td>
-       <td class="position-relative">
-           KW ${crop.ernteWoche || ''}
-           ${(isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen' ? 
-               '<span class="position-absolute top-50 end-0 translate-middle-y me-2">' +
-               `<i class="material-icons ${isHarvestOverdue ? 'text-danger' : 'text-warning'}" 
-                   title="${isHarvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
-                   ${isHarvestOverdue ? 'error' : 'notifications_active'}
-               </i>` +
-               '</span>' : ''}
-       </td>
-       <td>${crop.standort || ''}</td>
-       <td>${crop.status === 'In Bearbeitung' ? 
-           `${crop.geernteteErnte || '0'}/${crop.erwarteteErnte || '0'} ${crop.einheit || ''}` : 
-           `${crop.erwarteteErnte || '0'} ${crop.einheit || ''}`}</td>
-       <td>
-           <span class="badge ${statusClass}">
-               ${crop.status || 'Aktiv'}
-           </span>
-       </td>
-       <td class="text-end">
-           <button class="btn btn-sm btn-outline-danger" onclick="deleteCrop(${crop.id})" title="Kultur löschen">
-               <i class="material-icons" style="font-size: 18px;">delete</i>
-           </button>
-       </td>
-   `;
-   
-   // Add to top of table
-   tbody.insertBefore(tr, tbody.firstChild);
+    tr.innerHTML = `
+        <td>${crop.name || ''}</td>
+        <td>${crop.sorte || ''}</td>
+        <td>KW ${crop.pflanzWoche || ''}</td>
+        <td class="position-relative">
+            KW ${crop.ernteWoche || ''}
+            ${(isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen' ? 
+                '<span class="position-absolute top-50 end-0 translate-middle-y me-2">' +
+                `<i class="material-icons ${isHarvestOverdue ? 'text-danger' : 'text-warning'}" 
+                    title="${isHarvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
+                    ${isHarvestOverdue ? 'error' : 'notifications_active'}
+                </i>` +
+                '</span>' : ''}
+        </td>
+        <td>${crop.standort || ''}</td>
+        <td>${crop.erwarteteErnte || '0'} ${crop.einheit || ''}</td>
+        <td>
+            <span class="badge ${statusClass}">
+                ${crop.status || 'Aktiv'}
+            </span>
+        </td>
+        <td class="text-end">
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCrop(${crop.id})" title="Kultur löschen">
+                <i class="material-icons" style="font-size: 18px;">delete</i>
+            </button>
+        </td>
+    `;
+    
+    tbody.insertBefore(tr, tbody.firstChild);
 }
+
 
 // Handle successful crop save
 function onCropSaved() {
@@ -444,6 +483,11 @@ function createHarvestModal() {
         </div>
     `;
     
+    const existingModal = document.getElementById('harvestModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
@@ -499,25 +543,40 @@ function saveHarvest() {
 
     google.script.run
         .withSuccessHandler(function(result) {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('harvestModal'));
-            modal.hide();
+            // Update specific row
+            updateRowStatus(result.cropId, result.newStatus, result.harvestedAmount, result.totalAmount, result.unit);
+            
+            // Reload dashboard stats immediately
+            google.script.run
+                .withSuccessHandler(updateDashboardStats)
+                .withFailureHandler(handleError)
+                .getDashboardStats();
+            
+            const harvestModal = bootstrap.Modal.getInstance(document.getElementById('harvestModal'));
+            if (harvestModal) {
+                harvestModal.hide();
+            }
             form.reset();
-            loadDashboardData();
-            loadCalendarData();
+            
             showNotification('Ernte erfolgreich erfasst', 'success');
         })
-        .withFailureHandler(handleError)
+        .withFailureHandler(function(error) {
+            handleError(error);
+            const saveButton = form.querySelector('button[type="submit"]');
+            if (saveButton) {
+                saveButton.disabled = false;
+            }
+        })
         .saveHarvest(formData);
 }
 
 // Helper function to update row status
-function updateRowStatus(cropId, newStatus, harvestedAmount) {
-    const row = document.querySelector(`#cropsTable tr[data-id="${cropId}"]`);
+function updateRowStatus(cropId, newStatus, harvestedAmount, totalAmount, unit) {
+    const row = document.querySelector(`tr[data-id="${cropId}"]`);
     if (row) {
         const statusCell = row.querySelector('td:nth-child(7)');
         const harvestCell = row.querySelector('td:nth-child(6)');
         
-        // Update status badge
         if (statusCell) {
             const statusClass = {
                 'Aktiv': 'bg-success',
@@ -528,11 +587,57 @@ function updateRowStatus(cropId, newStatus, harvestedAmount) {
             statusCell.innerHTML = `<span class="badge ${statusClass}">${newStatus}</span>`;
         }
         
-        // Update harvest amount if needed
-        if (harvestCell && harvestedAmount) {
-            const [_, total, unit] = harvestCell.textContent.match(/(\d+)\s+(\w+)$/);
-            harvestCell.textContent = `${harvestedAmount}/${total} ${unit}`;
+        if (harvestCell) {
+            harvestCell.textContent = `${harvestedAmount}/${totalAmount} ${unit}`;
         }
+    }
+}
+
+function updateDashboardForStatus(oldStatus, newStatus) {
+    const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+    let aktivePflanzen = 0;
+    let geplantErnten = 0;
+    let inBearbeitung = 0;
+
+    const rows = document.querySelectorAll('#cropsTable tbody tr');
+    
+    rows.forEach(row => {
+        const status = row.querySelector('.badge').textContent;
+        const harvestWeek = parseInt(row.querySelector('td:nth-child(4)').textContent.replace('KW ', ''));
+        
+        // Todas culturas não concluídas são ativas
+        if (status !== 'Abgeschlossen') {
+            aktivePflanzen++;
+            
+            // Se está na semana atual, conta como planejada
+            if (harvestWeek === currentWeek) {
+                geplantErnten++;
+            }
+        }
+        
+        // Se está em processamento, conta seperadamente
+        if (status === 'In Bearbeitung') {
+            inBearbeitung++;
+        }
+    });
+
+    document.getElementById('activeCropsCount').textContent = aktivePflanzen;
+    document.getElementById('plannedHarvestsCount').textContent = geplantErnten;
+    document.getElementById('inProgressCount').textContent = inBearbeitung;
+}
+
+function incrementDashboardCounter(counterId) {
+    const element = document.getElementById(counterId);
+    if (element) {
+        const currentValue = parseInt(element.textContent) || 0;
+        element.textContent = currentValue + 1;
+    }
+}
+
+function decrementCounter(element) {
+    if (element) {
+        const currentValue = parseInt(element.textContent) || 0;
+        element.textContent = Math.max(0, currentValue - 1);
     }
 }
 
