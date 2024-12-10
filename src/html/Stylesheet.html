@@ -67,6 +67,83 @@ body {
     vertical-align: middle;
 }
 
+/* Color customizations */
+.text-indigo {
+    color: #6610f2;
+}
+
+/* Weather card customizations */
+.weather-card {
+    background-color: white;
+}
+
+.weather-card .card-body {
+    padding: 1.25rem;
+}
+
+.weather-card .d-flex.align-items-center {
+    margin-left: -0.375rem;
+}
+
+.weather-icon {
+    margin-left: 0.375rem;
+}
+
+/* Weekly forecast customizations */
+.weekly-forecast {
+    margin: 0;
+    width: 100%;
+}
+
+.forecast-container {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0;
+    gap: 4px;  /* Mantendo o espaçamento que estava funcionando bem */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.forecast-day {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+    min-width: 70px;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+.forecast-day .material-icons {
+    font-size: 22px !important; 
+    height: 22px;
+    width: 22px;
+    margin: 0.25rem auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2b3344;
+}
+
+.forecast-day .date {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+    width: 100%;
+}
+
+.forecast-day .temp {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #2b3344;
+    width: 100%;
+}
+
 /* Responsive customizations */
 @media (max-width: 768px) {
     .container {
@@ -76,6 +153,29 @@ body {
     
     .stats-number {
         font-size: 1.5rem;
+    }
+
+    .weekly-forecast .d-flex {
+        gap: 4px; /* Mantendo consistente com o desktop */
+    }
+
+    .forecast-day {
+        min-width: 65px;
+        padding: 0.5rem 0.25rem;
+    }
+
+    .forecast-day .material-icons {
+        font-size: 20px !important;
+        height: 20px;
+        width: 20px;
+    }
+
+    .forecast-day .temp {
+        font-size: 0.9rem;
+    }
+
+    .forecast-day .date {
+        font-size: 0.85rem;
     }
 }
 </style>
