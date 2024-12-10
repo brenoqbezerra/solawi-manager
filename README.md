@@ -17,10 +17,12 @@ Solawi Manager is a web system specifically developed to assist German community
 This is an MVP (Minimum Viable Product) version that implements essential basic functionalities, with potential for expansion based on user feedback and specific cooperative needs.
 
 ## Current Features
-
 - 📊 Intuitive dashboard with main metrics
 - 🌿 Basic crop management (registration, monitoring, deletion)
-- 📅 Planning based on German calendar weeks (KW)
+- 📅 Planning based on German calendar weeks (KW) with:
+  - Cross-year planning support
+  - Automatic harvest year calculation
+  - Intelligent delay detection considering year changes
 - 🏡 Cultivation site management
 - 📦 Harvest registration and monitoring
 - 🌡️ 7-day weather forecast with:
