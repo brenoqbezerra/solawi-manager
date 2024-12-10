@@ -65,59 +65,69 @@ function getHarvestedAmount(kulturName, sorte) {
   }
 }
 
-// Fetches data from the cultivation calendar with caching
+// Update getCalendarData to include years
 function getCalendarData() {
-  try {
-    const sheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
-    
-    if (!sheet) {
-      Logger.log('Sheet nicht gefunden: ' + SHEETS.CALENDAR);
-      return [];
+    try {
+        const sheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
+        
+        if (!sheet) {
+            Logger.log('Sheet not found: ' + SHEETS.CALENDAR);
+            return [];
+        }
+
+        const lastRow = sheet.getLastRow();
+        Logger.log('Last row: ' + lastRow);
+        
+        if (lastRow <= 1) {
+            return [];
+        }
+
+        // Update range to include new columns
+        const data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+        Logger.log('Raw data: ' + JSON.stringify(data));
+        
+        const formattedData = data
+            .filter(row => row[0])
+            .map(row => ({
+                id: row[0],
+                name: row[1],
+                sorte: row[2],
+                pflanzWoche: typeof row[3] === 'object' ? row[3].getWeek() : row[3],
+                ernteWoche: row[4],
+                status: row[5] || 'Aktiv',
+                standort: row[6],
+                anbauTyp: row[7],
+                erwarteteErnte: row[8],
+                einheit: row[9],
+                pflanzJahr: row[10] || getCurrentYear(),    // Default to current year if not set
+                ernteJahr: row[11] || getCurrentYear(),     // Default to current year if not set
+                geernteteErnte: getHarvestedAmount(row[1], row[2])
+            }));
+
+        Logger.log('Formatted data: ' + JSON.stringify(formattedData));
+        return formattedData;
+        
+    } catch (error) {
+        Logger.log('Error loading data: ' + error.toString());
+        throw error;
     }
-
-    // Get last row with data
-    const lastRow = sheet.getLastRow();
-    Logger.log('Last row: ' + lastRow); // Debug log
-    
-    if (lastRow <= 1) {
-      return [];
-    }
-
-    // Get all data
-    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
-    Logger.log('Raw data: ' + JSON.stringify(data)); // Debug log
-    
-    const formattedData = data
-      .filter(row => row[0]) // Filter by ID instead of name
-      .map(row => ({
-        id: row[0],
-        name: row[1],
-        sorte: row[2],
-        pflanzWoche: typeof row[3] === 'object' ? row[3].getWeek() : row[3],
-        ernteWoche: row[4],
-        status: row[5] || 'Aktiv',
-        standort: row[6],
-        anbauTyp: row[7],
-        erwarteteErnte: row[8],
-        einheit: row[9],
-        geernteteErnte: getHarvestedAmount(row[1], row[2])
-      }));
-
-    Logger.log('Formatted data: ' + JSON.stringify(formattedData)); // Debug log
-    return formattedData;
-    
-  } catch (error) {
-    Logger.log('Error loading data: ' + error.toString());
-    throw error;
-  }
 }
 
-// Save new culture and invalidate cache
+// Save new culture with year handling
 function saveCrop(data) {
     try {
         const sheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
         const lastRow = sheet.getLastRow();
         const newId = lastRow === 1 ? 1 : parseInt(sheet.getRange(lastRow, 1).getValue()) + 1;
+        
+        // Get current year for planting
+        const plantingYear = getCurrentYear();
+        // Calculate harvest year based on weeks
+        const harvestYear = calculateHarvestYear(
+            parseInt(data.pflanzWoche), 
+            parseInt(data.ernteWoche), 
+            plantingYear
+        );
         
         const rowData = [
             newId,
@@ -129,7 +139,9 @@ function saveCrop(data) {
             data.standort,
             data.anbauTyp,
             data.erwarteteErnte,
-            data.einheit
+            data.einheit,
+            plantingYear,        // New field: planting year
+            harvestYear         // New field: harvest year
         ];
         
         sheet.appendRow(rowData);
@@ -147,6 +159,8 @@ function saveCrop(data) {
             anbauTyp: data.anbauTyp,
             erwarteteErnte: data.erwarteteErnte,
             einheit: data.einheit,
+            pflanzJahr: plantingYear,    // Include in return data
+            ernteJahr: harvestYear,      // Include in return data
             geernteteErnte: 0
         };
     } catch (error) {
@@ -161,7 +175,7 @@ function invalidateCache() {
     cache.removeAll([CACHE_KEYS.CALENDAR, CACHE_KEYS.HARVEST, CACHE_KEYS.DASHBOARD]);
 }
 
-// Fetches dashboard statistics
+// Update getDashboardStats to consider years in calculations
 function getDashboardStats() {
     try {
         const sheet = getActiveSpreadsheet().getSheetByName(SHEETS.CALENDAR);
@@ -176,26 +190,25 @@ function getDashboardStats() {
             return { aktivePflanzen: 0, geplantErnten: 0, inBearbeitung: 0 };
         }
 
-        // Get raw data
-        const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+        // Update range to include new columns
+        const data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
         const aktuelleWoche = getCurrentWeek();
+        const aktuellesJahr = getCurrentYear();
         
-        // Filter out empty rows
         const validRows = data.filter(row => row[0]);
         
         Logger.log('Processing ' + validRows.length + ' rows');
 
         const stats = {
-            // Count ALL non-completed cultures (both Aktiv and In Bearbeitung)
             aktivePflanzen: validRows.filter(row => row[5] !== 'Abgeschlossen').length,
             
-            // Count cultures for current week that are not completed
+            // Update planned harvests logic to consider year
             geplantErnten: validRows.filter(row => 
                 row[4] === aktuelleWoche && 
+                row[11] === aktuellesJahr && // Check harvest year
                 row[5] !== 'Abgeschlossen'
             ).length,
             
-            // Count only In Bearbeitung cultures
             inBearbeitung: validRows.filter(row => row[5] === 'In Bearbeitung').length
         };
 
@@ -354,4 +367,14 @@ function chunkArray(array, size) {
         chunks.push(array.slice(i, i + size));
     }
     return chunks;
+}
+
+// Function to calculate harvest year based on planting week and harvest week
+function calculateHarvestYear(plantingWeek, harvestWeek, plantingYear) {
+    return harvestWeek >= plantingWeek ? plantingYear : plantingYear + 1;
+}
+
+// Get current year
+function getCurrentYear() {
+    return new Date().getFullYear();
 }
