@@ -18,11 +18,16 @@ Dies ist eine MVP-Version (Minimum Viable Product), die grundlegende Funktionen 
 
 ## Aktuelle Funktionen
 
-- 📊 Intuitives Dashboard mit wichtigen Kennzahlen
+- 📊 Intuitives Dashboard mit Hauptmetriken
 - 🌿 Grundlegende Kulturverwaltung (Anlegen, Überwachen, Löschen)
 - 📅 Planung basierend auf Kalenderwochen (KW)
 - 🏡 Standortverwaltung
 - 📦 Erfassung und Überwachung von Ernten
+- 🌡️ 7-Tage-Wettervorhersage mit:
+  - Automatische Standorterkennung
+  - Manuelle Suche nach deutschen Städten
+  - Anzeige von Temperatur und Wetterbedingungen
+  - Responsive Wetteranzeige
 - 📱 Responsive Oberfläche für mobile Geräte
 
 ## Geplante Funktionen
@@ -30,7 +35,6 @@ Dies ist eine MVP-Version (Minimum Viable Product), die grundlegende Funktionen 
 - Mitgliederverwaltung
 - Verteilungsplanung
 - Erweiterte Berichterstattung
-- Wettervorhersage-Integration
 - Grundlegende Finanzverwaltung
 
 ## Voraussetzungen
@@ -145,6 +149,10 @@ solawi-manager/
   - Google Apps Script
   - Google Sheets als Datenbank
 
+- Externe APIs:
+  - OpenMeteo API (Wettervorhersage)
+  - OpenStreetMap Nominatim (Geolokalisierung)
+
 ## Mitwirken
 
 Beiträge sind willkommen! Bitte lesen Sie unseren [Beitragsleitfaden](CONTRIBUTING.md) vor dem Einreichen von Änderungen.
@@ -174,4 +182,3 @@ Dieses Projekt wurde durch die landwirtschaftliche Planungsmethodik der WirGarte
 
 - Benutzeroberfläche ist auf Deutsch für die Zielgruppe
 - Code-Kommentare sind auf Englisch für internationale Zusammenarbeit
-- Dokumentation ist in Englisch, Deutsch und Portugiesisch verfügbar
