@@ -24,15 +24,36 @@
 
     <!-- Main container -->
     <div class="container mt-3">
-        <div class="alert alert-info d-flex align-items-center" role="alert">
+        <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
             <i class="material-icons me-2">today</i>
             <div>
                 Aktuelle Kalenderwoche: <span id="currentWeek" class="fw-bold"></span>
             </div>
         </div>
-    </div>       
-    
-    <div class="container mt-4">
+
+        <!-- Weather Card - NEW -->
+        <div class="weather-card card shadow-sm mb-3">
+            <div class="card-body">
+                <!-- Current weather -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center">
+                        <i class="material-icons text-indigo weather-icon">location_on</i>
+                        <h6 class="card-title mb-0 ms-2" id="weatherLocation">Standort wird geladen...</h6>
+                    </div>
+                    <button class="btn btn-link text-indigo p-0" onclick="openLocationModal()" title="Standort ändern">
+                        <i class="material-icons">edit_location</i>
+                    </button>
+                </div>
+                
+                <!-- Weekly forecast -->
+                <div class="weekly-forecast mt-3">
+                    <div class="d-flex forecast-container">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Statistics cards -->
         <div class="row g-4 mb-4">
             <!-- Active cultures -->
@@ -123,6 +144,34 @@
                             <!-- Populated by JavaScript -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Location Change Modal -->
+    <div class="modal fade" id="locationModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Standort ändern</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <button class="btn btn-success w-100 mb-3" onclick="useCurrentLocation()">
+                            <i class="material-icons align-middle me-2">my_location</i>
+                            Aktuellen Standort verwenden
+                        </button>
+                        <div class="text-center text-muted mb-3">- oder -</div>
+                        <div class="form-group">
+                            <label class="form-label">Stadt suchen</label>
+                            <input type="text" class="form-control" id="locationSearch" placeholder="z.B. Dresden">
+                        </div>
+                    </div>
+                    <div id="searchResults" class="list-group">
+                        <!-- Search results will be populated here -->
+                    </div>
                 </div>
             </div>
         </div>
