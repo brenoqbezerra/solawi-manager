@@ -79,11 +79,20 @@ The system automatically updates crop status based on harvest records:
 - System uses German calendar weeks (1-53)
 - Current week is displayed at the top
 - Planning is based on week numbers
+- Year support for cross-year planning
+
+### Cross-Year Planning
+- Planting year is automatically set to current year
+- Harvest year is automatically calculated:
+  * Same year if harvest week > planting week
+  * Next year if harvest week < planting week
+- System automatically detects overdue harvests considering year changes
 
 ### Important Week Considerations
-- Planting week must be before harvest week
+- Planting week must be before harvest week (considering years)
 - System alerts for current week harvests
 - Weekly planning helps organize activities
+- Year transition is handled automatically
 
 ## Weather System
 ### Location Settings
