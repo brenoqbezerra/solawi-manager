@@ -15,6 +15,281 @@ const STATUS_CLASSES = {
     'Abgeschlossen': 'bg-secondary'
 };
 
+// Weather constants
+const WEATHER_ICONS = {
+    'clear': 'wb_sunny',
+    'cloudy': 'cloud',
+    'partly-cloudy': 'partly_cloudy_day',
+    'rain': 'water_drop',
+    'snow': 'ac_unit',
+    'thunderstorm': 'thunderstorm',
+    'fog': 'foggy'
+};
+
+const WEATHER_DESCRIPTIONS = {
+    'wb_sunny': 'Sonnig',
+    'nightlight': 'Klar',
+    'partly_cloudy_day': 'Teilweise bewölkt',
+    'cloud': 'Bewölkt',
+    'water_drop': 'Regen',
+    'ac_unit': 'Schnee',
+    'flash_on': 'Gewitter'
+};
+
+// Weather functionality
+function initWeather() {
+    console.log('Initializing weather module');
+    try {
+        const savedLocation = localStorage.getItem('weatherLocation');
+        if (savedLocation) {
+            console.log('Found saved location');
+            const location = JSON.parse(savedLocation);
+            
+            // Verificar se a localização salva tem menos de 24 horas
+            const now = new Date().getTime();
+            const isFresh = (now - location.timestamp) < 24 * 60 * 60 * 1000;
+            
+            if (isFresh) {
+                document.getElementById('weatherLocation').textContent = location.name;
+                fetchWeatherData(location.lat, location.lon);
+                return;
+            }
+        }
+        
+        // Se não tiver localização salva ou estiver desatualizada
+        console.log('No saved location found or outdated, requesting current location');
+        document.getElementById('weatherLocation').textContent = 'Standort wird geladen...';
+        requestLocation();
+    } catch (error) {
+        console.error('Weather initialization error:', error);
+    }
+}
+
+// Weather location handling
+function requestLocation() {
+    console.log('Requesting location');
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                console.log('Location received');
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                console.log('Coordinates:', lat, lon);
+                useGeolocation(lat, lon); // NEW
+            },
+            function(error) {
+                console.error('Geolocation error:', error);
+                showNotification('Standortbestimmung fehlgeschlagen.', 'warning');
+            }
+        );
+    } else {
+        showNotification('Geolokalisierung wird nicht unterstützt.', 'warning');
+    }
+}
+
+function useGeolocation(lat, lon) {
+    console.log('Getting location name');
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Location data:', data);
+            const locationName = data.address.city || data.address.town || data.address.village || 'Unbekannter Ort';
+            saveLocation(lat, lon, locationName);  // Salvando a localização
+            document.getElementById('weatherLocation').textContent = locationName;
+            fetchWeatherData(lat, lon);
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            showNotification('Fehler beim Abrufen des Standortnamens', 'error');
+        });
+}
+
+function saveLocation(lat, lon, name) {
+    console.log('Saving location:', name);
+    const location = { 
+        lat: lat, 
+        lon: lon, 
+        name: name,
+        timestamp: new Date().getTime() // Adicionando timestamp para controle
+    };
+    localStorage.setItem('weatherLocation', JSON.stringify(location));
+}
+
+function fetchWeatherData(lat, lon) {
+    console.log('Fetching weather data');
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + 
+          '&daily=temperature_2m_max,temperature_2m_min,weathercode&current_weather=true&timezone=auto')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Weather data:', data);
+            if (data.current_weather) {
+                const temp = Math.round(data.current_weather.temperature);
+                const today = new Date();
+                const weekday = today.toLocaleDateString('de-DE', {weekday: 'long'});
+                const weatherIcon = getWeatherIcon(data.current_weather.weathercode);
+                const locationText = document.getElementById('weatherLocation').textContent.split('(')[0].trim();
+                
+                document.getElementById('weatherLocation').innerHTML = 
+                    locationText + ' <i class="material-icons align-middle ms-1">' + weatherIcon + '</i> (' + temp + '°C), ' + weekday;
+            }
+            
+            if (data.daily) {
+                updateWeeklyForecast(data.daily);
+            }
+        })
+        .catch(error => {
+            console.error('Weather API error:', error);
+            showNotification('Fehler beim Abrufen der Wetterdaten', 'error');
+        });
+}
+
+function getWeatherIcon(code) {
+    // Clear sky (day/night)
+    if (code === 0) {
+        const hour = new Date().getHours();
+        return (hour >= 6 && hour < 18) ? 'wb_sunny' : 'nightlight';
+    }
+    
+    // Partly cloudy
+    if (code === 1 || code === 2) return 'partly_cloudy_day';
+    
+    // Overcast
+    if (code === 3) return 'cloud';
+    
+    // Rain (drizzle and rain)
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+        return 'water_drop';  
+    }
+    
+    // Snow
+    if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
+        return 'ac_unit';
+    }
+    
+    // Thunderstorm
+    if (code >= 95 && code <= 99) {
+        return 'flash_on';
+    }
+    
+    // Default - cloudy
+    return 'cloud';
+}
+
+function updateWeeklyForecast(dailyData) {
+    const forecastContainer = document.querySelector('.weekly-forecast .forecast-container');
+    if (!forecastContainer) {
+        console.error('Forecast container not found');
+        return;
+    }
+    
+    forecastContainer.innerHTML = '';
+
+    // Get next 6 days
+    for (let i = 1; i < 7; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        
+        const dayTemp = Math.round((dailyData.temperature_2m_max[i] + dailyData.temperature_2m_min[i]) / 2);
+        const weatherIcon = getWeatherIcon(dailyData.weathercode[i]);
+        
+        const dayElement = document.createElement('div');
+        dayElement.className = 'forecast-day';
+        dayElement.innerHTML = `
+            <div class="date">${date.toLocaleDateString('de-DE', {weekday: 'short'})}</div>
+            <i class="material-icons mb-1">${weatherIcon}</i>
+            <div class="temp">${dayTemp}°C</div>
+        `;
+        
+        forecastContainer.appendChild(dayElement);
+    }
+}
+
+// Location search and change functions
+function openLocationModal() {
+    const modal = new bootstrap.Modal(document.getElementById('locationModal'));
+    modal.show();
+    
+    // Adiciona evento de busca ao input
+    const searchInput = document.getElementById('locationSearch');
+    searchInput.addEventListener('input', debounce(searchLocation, 500));
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function searchLocation() {
+    const searchInput = document.getElementById('locationSearch');
+    const searchTerm = searchInput.value.trim();
+    
+    if (searchTerm.length < 3) return;
+
+    const resultsContainer = document.getElementById('searchResults');
+    resultsContainer.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div></div>';
+
+    // Adicionando parâmetros de idioma e país
+    fetch('https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
+        format: 'json',
+        q: searchTerm,
+        'accept-language': 'de', // Forçando resultados em alemão
+        countrycodes: 'de,at,ch', // Limitando a países de língua alemã
+    }))
+        .then(response => response.json())
+        .then(data => {
+            resultsContainer.innerHTML = '';
+            
+            if (data.length === 0) {
+                resultsContainer.innerHTML = '<div class="text-center text-muted py-3">Keine Ergebnisse gefunden</div>';
+                return;
+            }
+
+            data.slice(0, 5).forEach(place => {
+                // Simplificando o endereço para mostrar apenas cidade e estado
+                const addressParts = place.display_name.split(',');
+                const cityName = addressParts[0];
+                const stateName = addressParts[addressParts.length - 2]?.trim() || '';
+                
+                const item = document.createElement('button');
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `<div class="d-flex align-items-center">
+                    <i class="material-icons text-indigo me-2">location_on</i>
+                    <div>
+                        <div class="fw-medium">${cityName}</div>
+                        <small class="text-muted">${stateName}</small>
+                    </div>
+                </div>`;
+                
+                item.onclick = () => selectLocation(place);
+                resultsContainer.appendChild(item);
+            });
+        })
+        .catch(error => {
+            console.error('Location search error:', error);
+            resultsContainer.innerHTML = '<div class="text-center text-danger py-3">Fehler bei der Suche</div>';
+        });
+}
+
+function selectLocation(place) {
+    const cityName = place.display_name.split(',')[0];
+    document.getElementById('weatherLocation').textContent = cityName;
+    saveLocation(place.lat, place.lon, cityName);
+    fetchWeatherData(place.lat, place.lon);
+    bootstrap.Modal.getInstance(document.getElementById('locationModal')).hide();
+}
+
+function useCurrentLocation() {
+    bootstrap.Modal.getInstance(document.getElementById('locationModal')).hide();
+    requestLocation();
+}
+
 // Initialize app on page load
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Starting app initialization');
@@ -50,6 +325,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             const bsModal = new bootstrap.Modal(modal);
             bsModal.show();
         });
+
+        // Initialize weather - NEW
+        try {
+            initWeather();
+            console.log('Weather initialization completed');
+        } catch (weatherError) {
+            console.error('Weather initialization failed:', weatherError);
+            // Failure to initialize weather should not affect other functionalities
+        }
         
         console.log('App initialization complete');
     } catch (error) {
