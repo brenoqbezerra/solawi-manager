@@ -23,6 +23,11 @@ Esta é uma versão MVP (Minimum Viable Product) que implementa as funcionalidad
 - 📅 Planejamento baseado em semanas do calendário alemão (KW)
 - 🏡 Gerenciamento de locais de cultivo
 - 📦 Registro e acompanhamento de colheitas
+- 🌡️ Previsão do tempo para 7 dias com:
+  - Detecção automática de localização
+  - Busca manual de cidades alemãs
+  - Exibição de temperatura e condições climáticas
+  - Interface responsiva para visualização do clima
 - 📱 Interface responsiva para uso em dispositivos móveis
 
 ## Funcionalidades Planejadas
@@ -30,7 +35,6 @@ Esta é uma versão MVP (Minimum Viable Product) que implementa as funcionalidad
 - Gestão de membros da cooperativa
 - Planejamento de distribuição
 - Relatórios avançados
-- Integração com previsão do tempo
 - Gestão financeira básica
 
 ## Requisitos
@@ -145,6 +149,10 @@ solawi-manager/
   - Google Apps Script
   - Google Sheets como banco de dados
 
+- APIs Externas:
+  - OpenMeteo API (previsão do tempo)
+  - OpenStreetMap Nominatim (geolocalização)
+
 ## Contribuindo
 
 Contribuições são bem-vindas! Por favor, leia nosso [Guia de Contribuição](CONTRIBUTING.md) antes de submeter alterações.
@@ -174,4 +182,3 @@ Este projeto foi inspirado pela metodologia de planejamento agrícola do movimen
 
 - A interface do usuário está em alemão para atender ao público-alvo
 - Comentários no código estão em inglês para facilitar colaboração internacional
-- A documentação está disponível em inglês, alemão e português
