@@ -506,7 +506,7 @@ function deleteCrop(id) {
                     row.style.opacity = '0';
                     setTimeout(() => row.remove(), 300);
                     
-                    // Update correct counter based on status
+                    // Immediate local counter update
                     if (status === 'Aktiv') {
                         decrementCounter(document.getElementById('activeCropsCount'));
                         // Check if it was planned for current week
@@ -518,6 +518,14 @@ function deleteCrop(id) {
                     } else if (status === 'In Bearbeitung') {
                         decrementCounter(document.getElementById('inProgressCount'));
                     }
+                    
+                    // Force server sync after local update
+                    setTimeout(() => {
+                        google.script.run
+                            .withSuccessHandler(updateDashboardStats)
+                            .withFailureHandler(handleError)
+                            .getDashboardStats();
+                    }, 500);
                     
                     showNotification('Kultur erfolgreich gelöscht', 'success');
                 }
@@ -641,12 +649,12 @@ function saveCrop() {
     google.script.run
         .withSuccessHandler(function(newCrop) {
             addNewRowToTable(newCrop);
-            incrementDashboardCounter('activeCropsCount');
             
-            const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
-            if (newCrop.ernteWoche === currentWeek) {
-                incrementDashboardCounter('plannedHarvestsCount');
-            }
+            // Immediately update dashboard after adding new crop
+            google.script.run
+                .withSuccessHandler(updateDashboardStats)
+                .withFailureHandler(handleError)
+                .getDashboardStats();
             
             const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
             modal.hide();
@@ -827,10 +835,9 @@ function saveHarvest() {
 
     google.script.run
         .withSuccessHandler(function(result) {
-            // Update specific row
             updateRowStatus(result.cropId, result.newStatus, result.harvestedAmount, result.totalAmount, result.unit);
             
-            // Reload dashboard stats immediately
+            // Force immediate dashboard update
             google.script.run
                 .withSuccessHandler(updateDashboardStats)
                 .withFailureHandler(handleError)
@@ -841,7 +848,6 @@ function saveHarvest() {
                 harvestModal.hide();
             }
             form.reset();
-            
             showNotification('Ernte erfolgreich erfasst', 'success');
         })
         .withFailureHandler(function(error) {
@@ -852,6 +858,13 @@ function saveHarvest() {
             }
         })
         .saveHarvest(formData);
+}
+
+function forceUpdateDashboard() {
+    google.script.run
+        .withSuccessHandler(updateDashboardStats)
+        .withFailureHandler(handleError)
+        .getDashboardStats();
 }
 
 // Helper function to update row status
