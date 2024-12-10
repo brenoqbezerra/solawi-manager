@@ -23,6 +23,11 @@ This is an MVP (Minimum Viable Product) version that implements essential basic 
 - 📅 Planning based on German calendar weeks (KW)
 - 🏡 Cultivation site management
 - 📦 Harvest registration and monitoring
+- 🌡️ 7-day weather forecast with:
+  - Automatic location detection
+  - Manual search for German cities
+  - Temperature and weather conditions display
+  - Responsive weather interface
 - 📱 Responsive interface for mobile devices
 
 ## Planned Features
@@ -30,7 +35,6 @@ This is an MVP (Minimum Viable Product) version that implements essential basic 
 - Cooperative member management
 - Distribution planning
 - Advanced reporting
-- Weather forecast integration
 - Basic financial management
 
 ## Requirements
@@ -145,6 +149,10 @@ solawi-manager/
   - Google Apps Script
   - Google Sheets as database
 
+- External APIs:
+  - OpenMeteo API (weather forecast)
+  - OpenStreetMap Nominatim (geolocation)
+
 ## Contributing
 
 Contributions are welcome! Please read our [Contribution Guide](CONTRIBUTING.md) before submitting changes.
@@ -174,4 +182,3 @@ This project was inspired by the agricultural planning methodology of the WirGar
 
 - User interface is in German to serve the target audience
 - Code comments are in English to facilitate international collaboration
-- Documentation is available in English, German, and Portuguese
