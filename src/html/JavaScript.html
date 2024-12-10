@@ -36,6 +36,21 @@ const WEATHER_DESCRIPTIONS = {
     'flash_on': 'Gewitter'
 };
 
+// Utility functions for date and harvest calculations
+function calculateHarvestYear(plantingWeek, harvestWeek, plantingYear) {
+    return harvestWeek >= plantingWeek ? plantingYear : plantingYear + 1;
+}
+
+function getCurrentYear() {
+    return new Date().getFullYear();
+}
+
+function checkHarvestOverdue(harvestWeek, harvestYear, currentWeek, currentYear) {
+    if (harvestYear < currentYear) return true;
+    if (harvestYear > currentYear) return false;
+    return harvestWeek < currentWeek;
+}
+
 // Weather functionality
 function initWeather() {
     console.log('Initializing weather module');
@@ -425,10 +440,10 @@ function updateCalendarTable(data) {
 
     google.script.run.withSuccessHandler(function(currentWeek) {
         data.sort((a, b) => b.id - a.id);
+        const currentYear = getCurrentYear();
 
         data.forEach(row => {
             const tr = document.createElement('tr');
-            // Add data-id attribute to the row
             tr.setAttribute('data-id', row.id);
             
             const statusClass = {
@@ -437,24 +452,24 @@ function updateCalendarTable(data) {
                 'Abgeschlossen': 'bg-secondary'
             }[row.status] || 'bg-primary';
 
-            const isHarvestDue = row.ernteWoche == currentWeek;
-            const isHarvestOverdue = row.ernteWoche < currentWeek && row.status !== 'Abgeschlossen';
+            const isHarvestDue = row.ernteWoche === currentWeek && row.ernteJahr === currentYear;
+            const harvestOverdue = checkHarvestOverdue(row.ernteWoche, row.ernteJahr, currentWeek, currentYear);
             
-            if ((isHarvestDue || isHarvestOverdue) && row.status !== 'Abgeschlossen') {
+            if ((isHarvestDue || harvestOverdue) && row.status !== 'Abgeschlossen') {
                 tr.classList.add('table-warning');
             }
 
             tr.innerHTML = `
                 <td>${row.name || ''}</td>
                 <td>${row.sorte || ''}</td>
-                <td>KW ${row.pflanzWoche || ''}</td>
+                <td>KW ${row.pflanzWoche || ''} / ${row.pflanzJahr || currentYear}</td>
                 <td class="position-relative">
-                    KW ${row.ernteWoche || ''}
-                    ${(isHarvestDue || isHarvestOverdue) && row.status !== 'Abgeschlossen' ? 
+                    KW ${row.ernteWoche || ''} / ${row.ernteJahr || currentYear}
+                    ${(isHarvestDue || harvestOverdue) && row.status !== 'Abgeschlossen' ? 
                         '<span class="position-absolute top-50 end-0 translate-middle-y me-2">' +
-                        `<i class="material-icons ${isHarvestOverdue ? 'text-danger' : 'text-warning'}" 
-                            title="${isHarvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
-                            ${isHarvestOverdue ? 'error' : 'notifications_active'}
+                        `<i class="material-icons ${harvestOverdue ? 'text-danger' : 'text-warning'}" 
+                            title="${harvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
+                            ${harvestOverdue ? 'error' : 'notifications_active'}
                         </i>` +
                         '</span>' : ''}
                 </td>
@@ -634,32 +649,41 @@ function saveCrop() {
         return;
     }
 
+    const plantWeek = parseInt(form.elements.pflanzWoche.value);
+    const harvestWeek = parseInt(form.elements.ernteWoche.value);
+    const currentYear = getCurrentYear();
+
     const formData = {
         name: form.elements.name.value,
         sorte: form.elements.sorte.value,
-        pflanzWoche: parseInt(form.elements.pflanzWoche.value),
-        ernteWoche: parseInt(form.elements.ernteWoche.value),
+        pflanzWoche: plantWeek,
+        ernteWoche: harvestWeek,
         standort: form.elements.standort.value,
         erwarteteErnte: parseFloat(form.elements.erwarteteErnte.value),
         einheit: form.elements.einheit.value,
         anbauTyp: form.elements.anbauTyp.value,
-        status: 'Aktiv'
+        status: 'Aktiv',
+        pflanzJahr: currentYear,
+        ernteJahr: calculateHarvestYear(plantWeek, harvestWeek, currentYear)
     };
 
     google.script.run
         .withSuccessHandler(function(newCrop) {
             addNewRowToTable(newCrop);
+            incrementDashboardCounter('activeCropsCount');
             
-            // Immediately update dashboard after adding new crop
-            google.script.run
-                .withSuccessHandler(updateDashboardStats)
-                .withFailureHandler(handleError)
-                .getDashboardStats();
+            const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
+            if (newCrop.ernteWoche === currentWeek && newCrop.ernteJahr === currentYear) {
+                incrementDashboardCounter('plannedHarvestsCount');
+            }
             
             const modal = bootstrap.Modal.getInstance(document.getElementById('newCropModal'));
             modal.hide();
             form.reset();
             showNotification('Neue Kultur erfolgreich angelegt', 'success');
+            
+            // Force dashboard update
+            forceUpdateDashboard();
         })
         .withFailureHandler(handleError)
         .saveCrop(formData);
@@ -672,10 +696,11 @@ function addNewRowToTable(crop) {
     tr.setAttribute('data-id', crop.id);
     
     const currentWeek = parseInt(document.getElementById('currentWeek').textContent.replace('KW ', ''));
-    const isHarvestDue = crop.ernteWoche == currentWeek;
-    const isHarvestOverdue = crop.ernteWoche < currentWeek && crop.status !== 'Abgeschlossen';
+    const currentYear = getCurrentYear();
+    const isHarvestDue = crop.ernteWoche === currentWeek && crop.ernteJahr === currentYear;
+    const harvestOverdue = checkHarvestOverdue(crop.ernteWoche, crop.ernteJahr, currentWeek, currentYear);
     
-    if ((isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen') {
+    if ((isHarvestDue || harvestOverdue) && crop.status !== 'Abgeschlossen') {
         tr.classList.add('table-warning');
     }
 
@@ -688,14 +713,14 @@ function addNewRowToTable(crop) {
     tr.innerHTML = `
         <td>${crop.name || ''}</td>
         <td>${crop.sorte || ''}</td>
-        <td>KW ${crop.pflanzWoche || ''}</td>
+        <td>KW ${crop.pflanzWoche || ''} / ${crop.pflanzJahr || currentYear}</td>
         <td class="position-relative">
-            KW ${crop.ernteWoche || ''}
-            ${(isHarvestDue || isHarvestOverdue) && crop.status !== 'Abgeschlossen' ? 
+            KW ${crop.ernteWoche || ''} / ${crop.ernteJahr || currentYear}
+            ${(isHarvestDue || harvestOverdue) && crop.status !== 'Abgeschlossen' ? 
                 '<span class="position-absolute top-50 end-0 translate-middle-y me-2">' +
-                `<i class="material-icons ${isHarvestOverdue ? 'text-danger' : 'text-warning'}" 
-                    title="${isHarvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
-                    ${isHarvestOverdue ? 'error' : 'notifications_active'}
+                `<i class="material-icons ${harvestOverdue ? 'text-danger' : 'text-warning'}" 
+                    title="${harvestOverdue ? 'Ernte überfällig' : 'Ernte diese Woche fällig'}">
+                    ${harvestOverdue ? 'error' : 'notifications_active'}
                 </i>` +
                 '</span>' : ''}
         </td>
@@ -715,7 +740,6 @@ function addNewRowToTable(crop) {
     
     tbody.insertBefore(tr, tbody.firstChild);
 }
-
 
 // Handle successful crop save
 function onCropSaved() {
