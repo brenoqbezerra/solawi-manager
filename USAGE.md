@@ -7,11 +7,11 @@
 4. [Recording Harvests](#recording-harvests)
 5. [Status System](#status-system)
 6. [Week Calendar](#week-calendar)
-7. [Tips and Best Practices](#tips-and-best-practices)
-8. [Troubleshooting](#troubleshooting)
+7. [Weather System](#weather-system)
+8. [Tips and Best Practices](#tips-and-best-practices)
+9. [Troubleshooting](#troubleshooting)
 
 ## Getting Started
-
 ### First Access
 1. Open your spreadsheet
 2. Click on "🌱 Solawi Manager" in the top menu
@@ -24,9 +24,9 @@
   - Active Crops (Aktive Kulturen)
   - Planned Harvests (Geplante Ernten)
   - In Progress (In Bearbeitung)
+- Weather forecast display for your location
 
 ## Managing Crops
-
 ### Adding a New Crop
 1. Click "Neue Kultur" (New Crop)
 2. Fill in required fields:
@@ -50,7 +50,6 @@
 - Note: This will also delete associated harvest records
 
 ## Recording Harvests
-
 ### Adding a Harvest Record
 1. Click "Ernte erfassen" (Record Harvest)
 2. Select the crop from the dropdown
@@ -66,7 +65,6 @@ The system automatically updates crop status based on harvest records:
 - Complete harvest → "Abgeschlossen"
 
 ## Status System
-
 ### Understanding Status Colors
 - 🟢 Green: Active crops
 - 🟡 Yellow: Crops in progress/partial harvest
@@ -77,7 +75,6 @@ The system automatically updates crop status based on harvest records:
 - 🔴 Red Bell: Harvest overdue
 
 ## Week Calendar
-
 ### German Calendar Week System (KW)
 - System uses German calendar weeks (1-53)
 - Current week is displayed at the top
@@ -88,8 +85,34 @@ The system automatically updates crop status based on harvest records:
 - System alerts for current week harvests
 - Weekly planning helps organize activities
 
-## Tips and Best Practices
+## Weather System
+### Location Settings
+- Automatic location detection on first access
+- Manual location change available
+- Location persists for 24 hours
 
+### Changing Location
+1. Click the location edit icon (pencil)
+2. Choose:
+   - "Aktuellen Standort verwenden" for current location
+   - Or search for a city in the search field
+
+### Weather Display
+- Current temperature and conditions
+- 6-day forecast showing:
+  - Daily temperature
+  - Weather conditions
+  - Day of the week
+
+### Weather Icons
+- ☀️ Clear sky (Klar)
+- 🌤️ Partly cloudy (Teilweise bewölkt)
+- ☁️ Overcast (Bewölkt)
+- 💧 Rain (Regen)
+- ❄️ Snow (Schnee)
+- ⚡ Thunderstorm (Gewitter)
+
+## Tips and Best Practices
 ### Data Management
 - Make regular backups of your spreadsheet
 - Don't modify column structures
@@ -101,14 +124,15 @@ The system automatically updates crop status based on harvest records:
 - Use location field systematically
 - Monitor harvest alerts weekly
 - Update harvest records promptly
+- Consider weather forecast for planning
 
 ### Mobile Usage
 - System is mobile-friendly
 - Simplified interface on small screens
 - All functions available on mobile
+- Weather forecast scrollable on mobile
 
 ## Troubleshooting
-
 ### Common Issues
 1. Menu not appearing
    - Refresh the spreadsheet
@@ -121,6 +145,11 @@ The system automatically updates crop status based on harvest records:
 3. Data not updating
    - Refresh the application page
    - Clear browser cache
+
+4. Weather not showing
+   - Allow location access in browser
+   - Try manual city search
+   - Check internet connection
 
 ### Getting Help
 - For technical issues: Open an issue on GitHub
