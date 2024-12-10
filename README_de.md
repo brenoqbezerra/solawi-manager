@@ -17,10 +17,12 @@ Der Solawi Manager ist ein Websystem, das speziell für die Verwaltung von Solid
 Dies ist eine MVP-Version (Minimum Viable Product), die grundlegende Funktionen implementiert und Potenzial für Erweiterungen basierend auf Nutzer-Feedback und spezifischen Bedürfnissen der Solawis bietet.
 
 ## Aktuelle Funktionen
-
 - 📊 Intuitives Dashboard mit Hauptmetriken
 - 🌿 Grundlegende Kulturverwaltung (Anlegen, Überwachen, Löschen)
-- 📅 Planung basierend auf Kalenderwochen (KW)
+- 📅 Planung basierend auf Kalenderwochen (KW) mit:
+  - Jahresübergreifende Planungsunterstützung
+  - Automatische Berechnung des Erntejahres
+  - Intelligente Verzögerungserkennung unter Berücksichtigung des Jahreswechsels
 - 🏡 Standortverwaltung
 - 📦 Erfassung und Überwachung von Ernten
 - 🌡️ 7-Tage-Wettervorhersage mit:
