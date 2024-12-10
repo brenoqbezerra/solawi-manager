@@ -17,10 +17,12 @@ O Solawi Manager é um sistema web desenvolvido especificamente para auxiliar co
 Esta é uma versão MVP (Minimum Viable Product) que implementa as funcionalidades básicas essenciais, com potencial para expansão baseada no feedback dos usuários e necessidades específicas das cooperativas.
 
 ## Funcionalidades Atuais
-
 - 📊 Dashboard intuitivo com métricas principais
 - 🌿 Gestão básica de cultivos (cadastro, acompanhamento, exclusão)
-- 📅 Planejamento baseado em semanas do calendário alemão (KW)
+- 📅 Planejamento baseado em semanas do calendário alemão (KW) com:
+  - Suporte a planejamento entre anos
+  - Cálculo automático do ano de colheita
+  - Detecção inteligente de atrasos considerando a virada do ano
 - 🏡 Gerenciamento de locais de cultivo
 - 📦 Registro e acompanhamento de colheitas
 - 🌡️ Previsão do tempo para 7 dias com:
