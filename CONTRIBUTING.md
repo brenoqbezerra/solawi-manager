@@ -77,6 +77,25 @@ src/
 - Proper error handling
 - Efficient Google Sheets operations
 - Responsive UI design
+- Handle API rate limits appropriately
+- Implement proper data caching
+- Follow year calculation conventions
+- Use standard date/time handling
+
+### Feature-Specific Standards
+#### Weather System
+- Use OpenMeteo API for weather data
+- Use OpenStreetMap API for location services
+- Follow Material Icons standards for weather icons
+- Implement 24-hour location caching
+- Limit location search to German-speaking regions
+- Handle geolocation permissions appropriately
+
+#### Calendar System
+- Use KW (Kalenderwoche) format consistently
+- Implement year transition logic
+- Calculate harvest years automatically
+- Handle cross-year planning scenarios
 
 ## Testing
 
@@ -85,6 +104,10 @@ src/
 - Check mobile responsiveness
 - Verify spreadsheet operations
 - Test error scenarios
+- Test weather data updates
+- Verify location services
+- Test year transition scenarios
+- Verify harvest calculations across years
 
 ### Test Environment
 - Create test spreadsheet
