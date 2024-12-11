@@ -45,13 +45,14 @@ This is an MVP (Minimum Viable Product) version that implements essential basic 
 - Access to Google Sheets
 - Updated web browser
 
-## Requesting Access
+## Accessing the Template
 
-To receive a copy of the template spreadsheet, send an email to bqbreno@gmail.com with:
-- Subject: "Solawi Manager Request"
-- Name of your cooperative
-- Country/Region
-- Brief description of your project
+1. Spreadsheet Template:
+   - [Access Solawi Manager Template](https://docs.google.com/spreadsheets/d/1mxsGO1WUXyXKesFQ2Gd9QZulfV-LA1GjYd0tFv0YLXE/edit?gid=980133036#gid=980133036)
+   - Make a copy (File > Make a copy)
+   - Follow instructions in "Anleitung" tab
+
+⚠️ **IMPORTANT**: The "🌱 Solawi Manager" link in the spreadsheet's top menu will only work after completely setting up Apps Script in your copy. Follow the installation instructions in the "Anleitung" tab carefully.
 
 ## Spreadsheet Structure
 
