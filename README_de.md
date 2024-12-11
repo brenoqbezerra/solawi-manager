@@ -45,14 +45,14 @@ Dies ist eine MVP-Version (Minimum Viable Product), die grundlegende Funktionen 
 - Zugriff auf Google Sheets
 - Aktueller Webbrowser
 
-## Zugang anfordern
+## Zugriff auf die Vorlage
 
-Um eine Kopie der Vorlage zu erhalten, senden Sie eine E-Mail an bqbreno@gmail.com mit:
-- Betreff: "Solawi Manager Anfrage"
-- Name Ihrer Solawi
-- Land/Region
-- Kurze Projektbeschreibung
+1. Tabellenvorlage:
+   - [Solawi Manager Vorlage aufrufen](https://docs.google.com/spreadsheets/d/1mxsGO1WUXyXKesFQ2Gd9QZulfV-LA1GjYd0tFv0YLXE/edit?gid=980133036#gid=980133036)
+   - Erstellen Sie eine Kopie (Datei > Kopie erstellen)
+   - Folgen Sie den Anweisungen im "Anleitung"-Tab
 
+⚠️ **WICHTIG**: Der Link "🌱 Solawi Manager" im oberen Menü der Tabelle funktioniert erst nach der vollständigen Einrichtung von Apps Script in Ihrer Kopie. Befolgen Sie sorgfältig die Installationsanweisungen im "Anleitung"-Tab.
 ## Tabellenstruktur
 
 Das System verwendet eine Google Sheets-Tabelle als Datenbank mit folgender Struktur:
