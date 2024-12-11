@@ -48,7 +48,7 @@ Esta é uma versão MVP (Minimum Viable Product) que implementa as funcionalidad
 ## Acesso ao Template
 
 1. Template da Planilha:
-   - [Acessar Template do Solawi Manager]([link-da-planilha](https://docs.google.com/spreadsheets/d/1mxsGO1WUXyXKesFQ2Gd9QZulfV-LA1GjYd0tFv0YLXE/edit?gid=980133036#gid=980133036))
+   - [Acessar Template do Solawi Manager](https://docs.google.com/spreadsheets/d/1mxsGO1WUXyXKesFQ2Gd9QZulfV-LA1GjYd0tFv0YLXE/edit?gid=980133036#gid=980133036)
    - Faça uma cópia (Arquivo > Fazer uma cópia)
    - Siga as instruções na aba "Anleitung"
 
