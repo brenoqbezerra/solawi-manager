@@ -4,6 +4,8 @@ Sistema de gestão para cooperativas agrícolas alemãs (Solawi - Solidarische L
 
 [English](README.md) | [Deutsch](README_de.md) | [Português](README_pt.md)
 
+![image alt](https://github.com/brenoqbezerra/solawi-manager/blob/13413c15bc42d7aa66d1d1733c27dbb7d8cb9ac6/screenshot.png)
+
 ## Sobre o Projeto
 
 O Solawi Manager é um sistema web desenvolvido especificamente para auxiliar cooperativas agrícolas alemãs (Solawi) no gerenciamento de seus cultivos e colheitas. Construído com Google Apps Script e Google Sheets, oferece uma solução simples e eficaz para:
