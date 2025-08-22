@@ -4,7 +4,7 @@ Management system for German Community Supported Agriculture (Solawi - Solidaris
 
 [English](README.md) | [Deutsch](README_de.md) | [Português](README_pt.md)
 
-![Texto Alternativo][https://drive.google.com/file/d/19svIcjeeKudSInyPk3rwTCqb6mKw7_J7/view?usp=sharing]
+![Texto Alternativo]([https://drive.google.com/file/d/19svIcjeeKudSInyPk3rwTCqb6mKw7_J7/view?usp=sharing])
 
 ## About the Project
 
