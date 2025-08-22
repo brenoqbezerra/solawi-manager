@@ -4,6 +4,8 @@ Verwaltungssystem für Solidarische Landwirtschaft (Solawi)
 
 [English](README.md) | [Deutsch](README_de.md) | [Português](README_pt.md)
 
+![image alt](https://github.com/brenoqbezerra/solawi-manager/blob/13413c15bc42d7aa66d1d1733c27dbb7d8cb9ac6/screenshot.png)
+
 ## Über das Projekt
 
 Der Solawi Manager ist ein Websystem, das speziell für die Verwaltung von Solidarischer Landwirtschaft entwickelt wurde. Auf Basis von Google Apps Script und Google Sheets bietet es eine einfache und effektive Lösung für:
