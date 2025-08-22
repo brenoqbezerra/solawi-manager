@@ -4,8 +4,6 @@ Management system for German Community Supported Agriculture (Solawi - Solidaris
 
 [English](README.md) | [Deutsch](README_de.md) | [Português](README_pt.md)
 
-![Texto Alternativo]([https://drive.google.com/file/d/19svIcjeeKudSInyPk3rwTCqb6mKw7_J7/view?usp=sharing])
-
 ## About the Project
 
 Solawi Manager is a web system specifically developed to assist German community supported agriculture (Solawi) in managing their crops and harvests. Built with Google Apps Script and Google Sheets, it offers a simple and effective solution for:
